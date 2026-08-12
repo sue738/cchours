@@ -1,0 +1,42 @@
+{
+  "name": "cchours",
+  "version": "0.1.0",
+  "description": "How many hours did your AI actually run? Time-based usage stats for Claude Code — subagents included, with a share card.",
+  "bin": {
+    "cchours": "bin/cchours.js"
+  },
+  "scripts": {
+    "test": "node test/test.js"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "usage",
+    "hours",
+    "time-tracking",
+    "agent",
+    "subagent",
+    "analytics",
+    "cli",
+    "ccusage"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sue738/cchours.git"
+  },
+  "homepage": "https://github.com/sue738/cchours#readme",
+  "bugs": {
+    "url": "https://github.com/sue738/cchours/issues"
+  },
+  "author": "sue738"
+}
