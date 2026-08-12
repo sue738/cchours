@@ -95,7 +95,7 @@ function resolveRange(o, agents, now) {
   }
   const from = Math.min(...agents.map((a) => a.firstMs));
   const days = Math.max(1, Math.round((to - from) / 86400000));
-  return { from, to, label: L(`${days} days on disk`, `ディスク上の${days}日間`) };
+  return { from, to, label: L(days === 1 ? `1 day on disk` : `${days} days on disk`, `ディスク上の${days}日間`) };
 }
 
 function main() {
@@ -117,7 +117,7 @@ function main() {
     // A card that only covers part of its window would invite unfair comparison,
     // so say how much data actually backs it when history is shorter than asked.
     const oldest = Math.min(...agents.map((a) => a.firstMs));
-    const covered = Math.round((to - Math.max(from, oldest)) / 86400000);
+    const covered = Math.max(1, Math.ceil((to - Math.max(from, oldest)) / 86400000));
     const asked = Math.round((to - from) / 86400000);
     const d = {
       label: (o.monthly || o.thisMonth) ? H.monthKey(from)

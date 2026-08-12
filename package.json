@@ -1,6 +1,6 @@
 {
   "name": "cchours",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "How many hours did your AI actually run? Time-based usage stats for Claude Code — subagents included, with a share card.",
   "bin": {
     "cchours": "bin/cchours.js"

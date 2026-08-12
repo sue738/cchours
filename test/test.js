@@ -169,7 +169,7 @@ ok('★CLI: 人月の定義を明記', monthly.includes('Not a productivity clai
 const card30 = run(['--card']);
 ok('★CLI: --card の既定は直近30日(比較可能にする)', card30.includes('last 30 days'));
 ok('★CLI: 履歴が窓より短ければ実データ量を明記', card30.includes('of history)'));
-ok('CLI: --card --all は全期間に戻せる', run(['--card', '--all']).includes('days on disk'));
+ok('CLI: --card --all は全期間に戻せる', /days? on disk/.test(run(['--card', '--all'])));
 
 const cardOut = run(['--all', '--card']);
 ok('CLI: --card はカードとnpx導線', cardOut.includes('cchours') && cardOut.includes('npx cchours'));
