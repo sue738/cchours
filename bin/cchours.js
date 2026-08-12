@@ -177,11 +177,12 @@ function main() {
       R.fmtH(m.hours),
       R.fmtH(m.hoursPer30Days),
       m.personMonthsPerMonth.toFixed(2),
+      R.fmtH(m.longestRunHours),
       R.fmtH(m.subagentHours),
     ]);
     console.log(R.banner(L('cchours — monthly', 'cchours — 月別')));
     console.log(R.table(
-      [L('month', '月'), L('observed', '観測'), L('agent-hrs', '延べ稼働'), L('per 30d', '30日換算'), L('person-mo', '人月/月'), L('subagents', 'サブ')],
+      [L('month', '月'), L('observed', '観測'), L('agent-hrs', '延べ稼働'), L('per 30d', '30日換算'), L('person-mo', '人月/月'), L('longest', '最長連続'), L('subagents', 'サブ')],
       rows));
     console.log(L('\n* = month still running. "per 30d" scales the observed span, because Claude Code',
       '\n* = 進行中の月。「30日換算」は観測期間で割り戻した値 — Claude Code の'));
@@ -201,16 +202,16 @@ function main() {
     rows.push([
       new Date(ds).toISOString().slice(0, 10),
       R.fmtH(s.agentHours), R.fmtH(s.wallHours), `×${s.parallelism.toFixed(1)}`,
-      R.fmtH(s.mainHours), R.fmtH(s.subagentHours),
+      R.fmtH(s.longestRunHours), R.fmtH(s.mainHours), R.fmtH(s.subagentHours),
     ]);
   }
   const tot = H.summarize(agents, from, to);
   if (o.json) return console.log(JSON.stringify({ from, to, ...tot }, null, 2));
   console.log(R.banner(L(`cchours — daily (${label})`, `cchours — 日別 (${label})`)));
   console.log(R.table(
-    [L('date', '日付'), L('agent-hrs', '延べ稼働'), L('wall', '実経過'), L('parallel', '並列'), L('main', 'メイン'), L('subagents', 'サブ')],
+    [L('date', '日付'), L('agent-hrs', '延べ稼働'), L('wall', '実経過'), L('parallel', '並列'), L('longest', '最長連続'), L('main', 'メイン'), L('subagents', 'サブ')],
     rows,
-    { totalRow: [L('Total', '合計'), R.fmtH(tot.agentHours), R.fmtH(tot.wallHours), `×${tot.parallelism.toFixed(1)}`, R.fmtH(tot.mainHours), R.fmtH(tot.subagentHours)] }));
+    { totalRow: [L('Total', '合計'), R.fmtH(tot.agentHours), R.fmtH(tot.wallHours), `×${tot.parallelism.toFixed(1)}`, R.fmtH(tot.longestRunHours), R.fmtH(tot.mainHours), R.fmtH(tot.subagentHours)] }));
   if (tot.personMonths >= 0.1) {
     console.log(L(`\n  = ${tot.personMonths.toFixed(2)} person-months of machine time (${H.HOURS_PER_PERSON_DAY}h × ${H.DAYS_PER_PERSON_MONTH}d). Try: cchours --monthly, cchours --card`,
       `\n  = 人月換算 ${tot.personMonths.toFixed(2)} 人月ぶんの稼働 (${H.HOURS_PER_PERSON_DAY}h × ${H.DAYS_PER_PERSON_MONTH}日)。月別: cchours --monthly / 共有: cchours --card`));

@@ -62,6 +62,7 @@ console.log('== summarize (並列は足す・実経過は union) ==');
   ok('★延べ稼働は並列ぶん加算(200秒)', Math.round(s.agentHours * 3600) === 200);
   ok('★実経過は重複を除く(100秒)', Math.round(s.wallHours * 3600) === 100);
   ok('並列度 = 延べ/実経過', s.parallelism === 2);
+  ok('★最長連続稼働(単一区間の最大長)', Math.round(s.longestRunHours * 3600) === 100);
   ok('メイン/サブを分けて集計', Math.round(s.mainHours * 3600) === 100 && Math.round(s.subagentHours * 3600) === 100);
   ok('件数', s.mainCount === 1 && s.subCount === 1 && s.agentCount === 2);
   ok('プロジェクト別合計', Math.round(s.projects[0].hours * 3600) === 200);
