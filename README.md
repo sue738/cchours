@@ -62,6 +62,11 @@ your history is shorter than 30 days the card says so.)
 ## Usage
 
 ```bash
+npx cchours                  # run without installing
+npm install -g cchours       # or make it a command: cchours
+```
+
+```bash
 npx cchours                  # daily table
 npx cchours --monthly        # per month, normalised to a 30-day rate
 npx cchours --week           # last 7 days
