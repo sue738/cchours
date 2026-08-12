@@ -112,7 +112,9 @@ convention, stated so you can disagree with it — not a claim about output.
 
 - **Your history is shorter than you think.** Claude Code deletes transcripts
   after `cleanupPeriodDays` (default 30), so "all time" means "what survived."
-  Raise it in `~/.claude/settings.json` before you care about the number.
+  Raise it in `~/.claude/settings.json` before you care about the number — or
+  keep an archive with [`ccforever`](https://github.com/sue738/ccforever) and
+  feed it back via `--base-dir`.
 - A tool that runs 10 minutes while the agent writes nothing (a long build, a
   sleeping poll) counts as stopped. cchours undercounts rather than guesses.
 - `--idle-gap N` moves the silence threshold. It's a knob for accuracy, not a
