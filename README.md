@@ -110,6 +110,8 @@ convention, stated so you can disagree with it — not a claim about output.
 
 ## Honest limitations
 
+- **Tested on macOS and Linux.** Paths are built with `path.join` and
+  `os.homedir()`, so Windows should work, but it is untested — reports welcome.
 - **Your history is shorter than you think.** Claude Code deletes transcripts
   after `cleanupPeriodDays` (default 30), so "all time" means "what survived."
   Raise it in `~/.claude/settings.json` before you care about the number — or
@@ -132,7 +134,7 @@ you-vs-AI ratio.
 
 - Zero dependencies, no postinstall, no network, no telemetry.
 - Reads `~/.claude/projects`, writes nothing (except an `--svg` file you name).
-- ~600 lines, all of it in `lib/`. Read it before you run it:
+- ~700 lines, all of it in `lib/`. Read it before you run it:
   `git clone <repo> && node cchours/bin/cchours.js`
 
 ## License
