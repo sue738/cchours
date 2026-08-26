@@ -68,6 +68,79 @@ console.log('== summarize (並列は足す・実経過は union) ==');
   ok('プロジェクト別合計', Math.round(s.projects[0].hours * 3600) === 200);
   const empty = H.summarize(agents, T(500), T(600));
   ok('範囲外は0(0除算しない)', empty.agentHours === 0 && empty.parallelism === 0);
+
+  // == 最長連続の単位 ==
+  // ここは3回作り直して3回とも壊した箇所。壊し方が毎回違うので3方向から留める。
+  const P = '/x/proj/sess-a.jsonl';
+  const S = '/x/proj/sess-a/subagents/agent-1.jsonl';
+  const O = '/x/proj/sess-b.jsonl';
+
+  // (1) 親がサブエージェントを待っている間は稼働。親子は同じ run に属する。
+  //     ファイル名は <sess>.jsonl と <sess>/subagents/... で形が違うので、
+  //     正規化を誤ると別グループに落ちて統合されない(実際に落ちた)。
+  const handoff = H.summarize([
+    { file: P, isSubagent: false, project: 'p', intervals: [[T(0), T(50)], [T(150), T(200)]] },
+    { file: S, isSubagent: true, project: 'p', intervals: [[T(50), T(150)]] },
+  ], from, to);
+  ok('★親子は統合され、受け渡しで切れない(200秒)',
+     Math.round(handoff.longestRunHours * 3600) === 200);
+
+  // (2) たまたま同時刻に走っていた別セッションを繋いではいけない。
+  //     全体を1本に統合したとき、無関係な24セッションが1つの run になった。
+  const unrelated = H.summarize([
+    { file: P, isSubagent: false, project: 'p', intervals: [[T(0), T(100)]] },
+    { file: O, isSubagent: false, project: 'p', intervals: [[T(90), T(300)]] },
+  ], from, to);
+  ok('★別セッションは重なっていても統合しない(210秒)',
+     Math.round(unrelated.longestRunHours * 3600) === 210);
+
+  // (3) 不変条件: 統合は区間を伸ばすことしかしない。どんな入力でも
+  //     「統合後の最長 >= 個々の区間の最長」。破れたら実装が壊れている。
+  const any = [
+    { file: P, isSubagent: false, project: 'p', intervals: [[T(0), T(30)], [T(200), T(260)]] },
+    { file: S, isSubagent: true, project: 'p', intervals: [[T(20), T(80)]] },
+    { file: O, isSubagent: false, project: 'p', intervals: [[T(400), T(455)]] },
+  ];
+  const rawMax = Math.max(...any.flatMap((a) => a.intervals.map(([s2, e2]) => e2 - s2)));
+  ok('★不変条件: 統合後の最長は個々の最長を下回らない',
+     H.summarize(any, from, to).longestRunHours * 3600000 >= rawMax);
+
+  // (4) file を持たない呼び出し(直接 intervals を渡す既存の使い方)を壊さない。
+  ok('file 無しでも落ちない', typeof H.summarize(agents, from, to).longestRunHours === 'number');
+
+  // == ピーク同時稼働 ==
+  const peak3 = H.summarize([
+    { file: P, isSubagent: false, project: 'p', intervals: [[T(0), T(100)]] },
+    { file: O, isSubagent: false, project: 'p', intervals: [[T(10), T(90)]] },
+    { file: '/x/proj/sess-c.jsonl', isSubagent: false, project: 'p', intervals: [[T(20), T(80)]] },
+  ], from, to);
+  ok('★ピークは同時に走った最大数', peak3.peakParallel === 3);
+  ok('平均とピークは別物', peak3.parallelism < peak3.peakParallel);
+  ok('端が接するだけなら同時ではない',
+     H.summarize([
+       { file: P, isSubagent: false, project: 'p', intervals: [[T(0), T(50)]] },
+       { file: O, isSubagent: false, project: 'p', intervals: [[T(50), T(100)]] },
+     ], from, to).peakParallel === 1);
+
+  // == セッション内ピーク ==
+  // 全体ピークは「10セッションが3並列」と「1セッションが30並列」を同じ数字にする。
+  // 正反対の診断なのに区別できず、実際にこの数字を読んで逆の結論を出した。
+  // 並列度の上限が語るのは常に後者なので、セッション単位でも測る。
+  ok('★別セッションの重なりはセッション内ピークに数えない',
+     peak3.peakParallel === 3 && peak3.peakParallelSession === 1);
+
+  const fanout = H.summarize([
+    { file: P, isSubagent: false, project: 'p', intervals: [[T(0), T(100)]] },
+    { file: S, isSubagent: true, project: 'p', intervals: [[T(10), T(90)]] },
+    { file: '/x/proj/sess-a/subagents/agent-2.jsonl', isSubagent: true, project: 'p', intervals: [[T(20), T(80)]] },
+  ], from, to);
+  ok('★同一セッションのファンアウトは数える', fanout.peakParallelSession === 3);
+
+  // 不変条件: セッション内ピークは全体ピークの部分集合から出るので、超えない。
+  // 破れたらグループ分けが壊れている。
+  ok('★不変条件: セッション内ピーク <= 全体ピーク',
+     peak3.peakParallelSession <= peak3.peakParallel &&
+     fanout.peakParallelSession <= fanout.peakParallel);
 }
 
 console.log('== personUnits (換算は固定係数・盛らない) ==');
@@ -187,6 +260,17 @@ const gap = JSON.parse(run(['--all', '--json', '--idle-gap', '600']));
 ok('CLI: --idle-gap を上げると空きも稼働に含まれる', gap.agentHours * 3600 > 500);
 const empty = execFileSync('node', [BIN, '--base-dir', path.join(tmp, 'nope')], { encoding: 'utf8', env });
 ok('CLI: transcript無しでも落ちない', empty.includes('no transcripts'));
+
+console.log('== scope (何を数えたか自分で名乗る) ==');
+ok('CLI: 集計範囲を出す', out.includes('main loop + subagent turns'));
+ok('CLI: ja でも集計範囲を出す', ja.includes('メインループ + サブエージェント'));
+ok('CLI: --json に scope', js.scope === 'both');
+ok('CLI: --monthly --json は配列のまま各行に scope',
+  Array.isArray(JSON.parse(run(['--monthly', '--json']))) && JSON.parse(run(['--monthly', '--json']))[0].scope === 'both');
+ok('★宣言したscopeと実装が一致(サブエージェント分が延べに入っている)',
+  js.scope === 'both' && s.subagentHours > 0 && s.agentHours > s.mainHours);
+ok('--by-project / --caps でも出す',
+  proj.includes('main loop + subagent turns') && caps.includes('main loop + subagent turns'));
 
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(`\n結果: ${pass} pass / ${fail} fail`);

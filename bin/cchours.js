@@ -15,6 +15,23 @@ const R = require('../lib/render.js');
 const JA = /^ja/i.test(process.env.CCHOURS_LANG || process.env.LC_ALL || process.env.LC_MESSAGES || process.env.LANG || '');
 const L = (en, ja) => (JA ? ja : en);
 
+/**
+ * Which turns these numbers cover.
+ *
+ * hours.js listTranscripts() walks every .jsonl under the base dir — the
+ * subagents/ directories included — and summarize() folds both into agentHours.
+ * So the scope is 'both'. The daily table already splits main from subagents,
+ * but the headline (agent-hrs / Total) is the sum, and a reader comparing it
+ * with a main-loop-only tool cannot tell that from the number alone.
+ *
+ * Wording is kept byte-identical to the shared transcript lib's
+ * scopeNote('both'); cchours does not use that reader and will not take a
+ * dependency for one string.
+ */
+const SCOPE = 'both';
+const SCOPE_NOTE = L('main loop + subagent turns', 'メインループ + サブエージェント');
+const SCOPE_LINE = L(`  scope: ${SCOPE_NOTE}`, `  集計範囲: ${SCOPE_NOTE}`);
+
 const HELP = `cchours — how many hours did your AI actually run?
 
 Usage:
@@ -131,6 +148,13 @@ function main() {
       wallHours: s.wallHours,
       grid,
     };
+    if (o.json) {
+      const day0 = H.dayRange(new Date(from))[0];
+      return console.log(JSON.stringify({
+        from, to, day0: new Date(day0).toISOString().slice(0, 10),
+        hours: s.agentHours, grid,
+      }, null, 2));
+    }
     if (o.svg) {
       fs.writeFileSync(o.svg, R.cardSvg(d, JA));
       console.log(L(`wrote ${o.svg}`, `${o.svg} を書き出しました`));
@@ -149,6 +173,7 @@ function main() {
     }
     console.log(R.banner(L(`cchours — idle-cap band (${label})`, `cchours — 上限別の稼働時間 (${label})`)));
     console.log(R.table([L('idle cap', '停止とみなす沈黙'), L('agent-hrs', '延べ稼働'), L('wall', '実経過'), L('parallel', '並列')], rows));
+    console.log(SCOPE_LINE);
     console.log(L('\nNo single cap is "the truth" — a wider cap credits longer silences as work.',
       '\nどれか1つが「正解」ではない。上限を広げるほど長い沈黙も稼働に数える。'));
     return;
@@ -164,13 +189,16 @@ function main() {
     console.log(R.banner(L(`cchours — by project (${label})`, `cchours — プロジェクト別 (${label})`)));
     console.log(R.table([L('project', 'プロジェクト'), L('agent-hrs', '延べ稼働'), ''], rows,
       { align: ['l', 'r', 'l'], totalRow: [L('Total', '合計'), R.fmtH(s.agentHours), ''] }));
+    console.log(SCOPE_LINE);
     return;
   }
 
   // ---- monthly ----
   if (o.monthly) {
     const months = H.byMonth(agents, now.getTime());
-    if (o.json) return console.log(JSON.stringify(months, null, 2));
+    // per-row rather than wrapping the array: the shape stays an array so
+    // anything already parsing this keeps working.
+    if (o.json) return console.log(JSON.stringify(months.map((m) => ({ ...m, scope: SCOPE })), null, 2));
     const rows = months.map((m) => [
       m.month + (m.partial ? '*' : ''),
       `${m.observedDays.toFixed(0)}d`,
@@ -184,6 +212,7 @@ function main() {
     console.log(R.table(
       [L('month', '月'), L('observed', '観測'), L('agent-hrs', '延べ稼働'), L('per 30d', '30日換算'), L('person-mo', '人月/月'), L('longest', '最長連続'), L('subagents', 'サブ')],
       rows));
+    console.log(SCOPE_LINE);
     console.log(L('\n* = month still running. "per 30d" scales the observed span, because Claude Code',
       '\n* = 進行中の月。「30日換算」は観測期間で割り戻した値 — Claude Code の'));
     console.log(L('  deletes transcripts after cleanupPeriodDays, so early months are usually partial.',
@@ -195,6 +224,7 @@ function main() {
 
   // ---- daily (default) ----
   const rows = [];
+  const daily = [];
   for (let d = new Date(from); d.getTime() < to; d = new Date(d.getTime() + 86400000)) {
     const [ds, de] = H.dayRange(d);
     const s = H.summarize(agents, ds, de);
@@ -204,14 +234,19 @@ function main() {
       R.fmtH(s.agentHours), R.fmtH(s.wallHours), `×${s.parallelism.toFixed(1)}`,
       R.fmtH(s.longestRunHours), R.fmtH(s.mainHours), R.fmtH(s.subagentHours),
     ]);
+    daily.push({ date: new Date(ds).toISOString().slice(0, 10), ...s });
   }
   const tot = H.summarize(agents, from, to);
-  if (o.json) return console.log(JSON.stringify({ from, to, ...tot }, null, 2));
+  // daily配列はテキスト表(rows)と同じ H.summarize() 結果を積んだだけで、
+  // 別集計を作っていない — ccflaky/probe.js の2.3倍ズレと同じ穴を
+  // ここでは作らない。
+  if (o.json) return console.log(JSON.stringify({ from, to, scope: SCOPE, ...tot, daily }, null, 2));
   console.log(R.banner(L(`cchours — daily (${label})`, `cchours — 日別 (${label})`)));
   console.log(R.table(
     [L('date', '日付'), L('agent-hrs', '延べ稼働'), L('wall', '実経過'), L('parallel', '並列'), L('longest', '最長連続'), L('main', 'メイン'), L('subagents', 'サブ')],
     rows,
     { totalRow: [L('Total', '合計'), R.fmtH(tot.agentHours), R.fmtH(tot.wallHours), `×${tot.parallelism.toFixed(1)}`, R.fmtH(tot.longestRunHours), R.fmtH(tot.mainHours), R.fmtH(tot.subagentHours)] }));
+  console.log(SCOPE_LINE);
   if (tot.personMonths >= 0.1) {
     console.log(L(`\n  = ${tot.personMonths.toFixed(2)} person-months of machine time (${H.HOURS_PER_PERSON_DAY}h × ${H.DAYS_PER_PERSON_MONTH}d). Try: cchours --monthly, cchours --card`,
       `\n  = 人月換算 ${tot.personMonths.toFixed(2)} 人月ぶんの稼働 (${H.HOURS_PER_PERSON_DAY}h × ${H.DAYS_PER_PERSON_MONTH}日)。月別: cchours --monthly / 共有: cchours --card`));
