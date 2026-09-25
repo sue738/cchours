@@ -11,6 +11,8 @@ them answer the question you actually ask yourself at the end of a month: *how
 much machine time did I run?* On a subscription the dollar figure is fictional
 and tokens don't map to anything you can feel — hours do.
 
+> Also for Codex CLI, Gemini CLI and Cursor: [agstats](https://github.com/sue738/agstats) reads every agent's transcripts side by side (`npx agstats hours`).
+
 ```
 ╭──────────────────╮
 │  cchours — monthly  │
