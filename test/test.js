@@ -307,6 +307,15 @@ const svgJsonPath = path.join(tmp, 'card-json.svg');
 const svgJson = svgRun(['--svg', svgJsonPath, '--json']);
 ok('★--svg --json はファイルも書き、stdout は JSON のまま', svgJson.status === 0 && fs.existsSync(svgJsonPath) && JSON.parse(svgJson.out).svg === svgJsonPath);
 
+console.log('== --json answers in JSON even with no data ==');
+const noneRun = (args) => execFileSync('node', [BIN, ...args, '--json', '--base-dir', path.join(tmp, 'nope')], { encoding: 'utf8', env });
+const parses = (t) => { try { JSON.parse(t); return true; } catch (e) { return false; } };
+ok('★データ無しの --json は空の結果(文ではない)', parses(noneRun([])) && JSON.parse(noneRun([])).agentHours === 0 && JSON.parse(noneRun([])).daily.length === 0);
+ok('★--card --json も', parses(noneRun(['--card'])) && JSON.parse(noneRun(['--card'])).hours === 0);
+ok('★--monthly --json は空配列', Array.isArray(JSON.parse(noneRun(['--monthly']))));
+ok('★--caps --json(以前は JSON が無かった)', JSON.parse(noneRun(['--caps'])).caps.length === 6);
+ok('--caps --json はデータありでも出る', JSON.parse(run(['--all', '--caps', '--json'])).caps.find((c) => c.idleCapS === 60).agentHours > 0);
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(`\n結果: ${pass} pass / ${fail} fail`);
 process.exit(fail ? 1 : 0);

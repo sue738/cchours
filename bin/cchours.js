@@ -136,7 +136,7 @@ function resolveRange(o, agents, now) {
   if ((o.card || o.svg) && !o.all) {
     return { from: H.dayRange(new Date(now - 29 * 86400000))[0], to, label: L('last 30 days', '直近30日') };
   }
-  const from = Math.min(...agents.map((a) => a.firstMs));
+  const from = agents.length ? Math.min(...agents.map((a) => a.firstMs)) : to;
   const days = Math.max(1, Math.round((to - from) / 86400000));
   return { from, to, label: L(days === 1 ? `1 day on disk` : `${days} days on disk`, `ディスク上の${days}日間`) };
 }
@@ -144,7 +144,8 @@ function resolveRange(o, agents, now) {
 function main() {
   const o = parseArgs(process.argv);
   const { agents } = H.scan(o);
-  if (!agents.length) {
+  // --json always answers in JSON: the empty result, not a sentence.
+  if (!agents.length && !o.json) {
     console.log(L('(no transcripts found under ~/.claude/projects)', '(~/.claude/projects に transcript がありません)'));
     return;
   }
@@ -159,7 +160,7 @@ function main() {
     const night = H.nightShare(clock);
     // A card that only covers part of its window would invite unfair comparison,
     // so say how much data actually backs it when history is shorter than asked.
-    const oldest = Math.min(...agents.map((a) => a.firstMs));
+    const oldest = agents.length ? Math.min(...agents.map((a) => a.firstMs)) : to;
     const covered = Math.max(1, Math.ceil((to - Math.max(from, oldest)) / 86400000));
     const asked = Math.round((to - from) / 86400000);
     const d = {
@@ -193,11 +194,14 @@ function main() {
   // ---- honesty band: the same period at several idle caps ----
   if (o.caps) {
     const rows = [];
+    const caps = [];
     for (const cap of [30, 60, 120, 300, 600, 900]) {
       const { agents: ag } = H.scan(Object.assign({}, o, { idleGapS: cap }));
       const s = H.summarize(ag, from, to);
+      caps.push({ idleCapS: cap, agentHours: s.agentHours, wallHours: s.wallHours, parallelism: s.parallelism });
       rows.push([`${cap}s`, R.fmtH(s.agentHours), R.fmtH(s.wallHours), `×${s.parallelism.toFixed(1)}`]);
     }
+    if (o.json) return console.log(JSON.stringify({ from, to, scope: SCOPE, caps }, null, 2));
     console.log(R.banner(L(`cchours — idle-cap band (${label})`, `cchours — 上限別の稼働時間 (${label})`)));
     console.log(R.table([L('idle cap', '停止とみなす沈黙'), L('agent-hrs', '延べ稼働'), L('wall', '実経過'), L('parallel', '並列')], rows));
     console.log(SCOPE_LINE);
