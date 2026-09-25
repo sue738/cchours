@@ -297,6 +297,16 @@ ok('★存在しない日付(2026-02-30)は exit 2', code(['--until', '20260230'
 ok('★--since が --until より後なら exit 2', code(['--since', '20260925', '--until', '20260901']) === 2);
 ok('正しい値は通る', code(['--since', '2026-09-01', '--until', '20260925', '--days', '7', '--idle-gap', '120']) === 0);
 
+console.log('== --svg fails cleanly ==');
+const svgRun = (args) => { try { return { status: 0, out: execFileSync('node', [BIN, ...args, '--base-dir', base], { encoding: 'utf8', env, stdio: 'pipe' }) }; } catch (e) { return { status: e.status, err: String(e.stderr) }; } };
+const noDir = svgRun(['--svg', path.join(tmp, 'no-such-dir', 'x.svg')]);
+ok('★親ディレクトリが無ければ exit 2 と平文(スタックトレースを出さない)', noDir.status === 2 && /does not exist/.test(noDir.err) && !/at Object\.|node:fs/.test(noDir.err));
+const isDir = svgRun(['--svg', tmp]);
+ok('★ディレクトリを指したら exit 2 と平文', isDir.status === 2 && /is a directory/.test(isDir.err));
+const svgJsonPath = path.join(tmp, 'card-json.svg');
+const svgJson = svgRun(['--svg', svgJsonPath, '--json']);
+ok('★--svg --json はファイルも書き、stdout は JSON のまま', svgJson.status === 0 && fs.existsSync(svgJsonPath) && JSON.parse(svgJson.out).svg === svgJsonPath);
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(`\n結果: ${pass} pass / ${fail} fail`);
 process.exit(fail ? 1 : 0);

@@ -108,6 +108,17 @@ function parseDate(s) {
   return d.getTime();
 }
 
+/** Write the share card, or say plainly why not: a bad path is the user's to fix, not a stack trace. */
+function writeSvg(file, svg) {
+  const path = require('path');
+  let st = null;
+  try { st = fs.statSync(file); } catch (e) { /* new file */ }
+  if (st && st.isDirectory()) usageError(L(`--svg: ${file} is a directory — give a file path`, `--svg: ${file} はディレクトリです — ファイルのパスを指定してください`));
+  const dir = path.dirname(path.resolve(file));
+  if (!fs.existsSync(dir)) usageError(L(`--svg: directory ${dir} does not exist`, `--svg: ディレクトリ ${dir} がありません`));
+  try { fs.writeFileSync(file, svg); } catch (e) { console.error(L(`--svg: could not write ${file}: ${e.message}`, `--svg: ${file} に書けませんでした: ${e.message}`)); process.exit(1); }
+}
+
 /**
  * Resolve the requested window.
  *
@@ -163,16 +174,17 @@ function main() {
       wallHours: s.wallHours,
       grid,
     };
+    // --svg with --json writes the file too; the "wrote" line goes to stderr so stdout stays JSON.
+    if (o.svg) {
+      writeSvg(o.svg, R.cardSvg(d, JA));
+      (o.json ? console.error : console.log)(L(`wrote ${o.svg}`, `${o.svg} を書き出しました`));
+    }
     if (o.json) {
       const day0 = H.dayRange(new Date(from))[0];
       return console.log(JSON.stringify({
         from, to, day0: H.dayKey(day0),
-        hours: s.agentHours, grid,
+        hours: s.agentHours, grid, ...(o.svg ? { svg: o.svg } : {}),
       }, null, 2));
-    }
-    if (o.svg) {
-      fs.writeFileSync(o.svg, R.cardSvg(d, JA));
-      console.log(L(`wrote ${o.svg}`, `${o.svg} を書き出しました`));
     }
     if (o.card || !o.svg) console.log('\n' + R.card(d, JA) + '\n');
     return;
