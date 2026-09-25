@@ -151,7 +151,7 @@ function main() {
     if (o.json) {
       const day0 = H.dayRange(new Date(from))[0];
       return console.log(JSON.stringify({
-        from, to, day0: new Date(day0).toISOString().slice(0, 10),
+        from, to, day0: H.dayKey(day0),
         hours: s.agentHours, grid,
       }, null, 2));
     }
@@ -230,11 +230,11 @@ function main() {
     const s = H.summarize(agents, ds, de);
     if (s.agentHours <= 0) continue;
     rows.push([
-      new Date(ds).toISOString().slice(0, 10),
+      H.dayKey(ds),
       R.fmtH(s.agentHours), R.fmtH(s.wallHours), `×${s.parallelism.toFixed(1)}`,
       R.fmtH(s.longestRunHours), R.fmtH(s.mainHours), R.fmtH(s.subagentHours),
     ]);
-    daily.push({ date: new Date(ds).toISOString().slice(0, 10), ...s });
+    daily.push({ date: H.dayKey(ds), ...s });
   }
   const tot = H.summarize(agents, from, to);
   // daily配列はテキスト表(rows)と同じ H.summarize() 結果を積んだだけで、

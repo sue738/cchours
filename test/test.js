@@ -272,6 +272,21 @@ ok('★宣言したscopeと実装が一致(サブエージェント分が延べ�
 ok('--by-project / --caps でも出す',
   proj.includes('main loop + subagent turns') && caps.includes('main loop + subagent turns'));
 
+console.log('== day labels (local time, not UTC) ==');
+// 08:00-08:10 in Tokyo on 2026-09-20 is 23:00Z on the 19th. Days are bucketed
+// in local time, so the label must be the local day too.
+const baseTz = path.join(tmp, 'tz', 'projects');
+fs.mkdirSync(path.join(baseTz, '-p-a'), { recursive: true });
+fs.writeFileSync(path.join(baseTz, '-p-a', 's.jsonl'), Array.from({ length: 20 }, (_, i) => JSON.stringify({
+  type: i % 2 ? 'assistant' : 'user', timestamp: new Date(Date.parse('2026-09-19T23:00:00Z') + i * 30000).toISOString(),
+})).join('\n') + '\n');
+const envTokyo = Object.assign({}, env, { TZ: 'Asia/Tokyo' });
+const runTz = (args) => execFileSync('node', [BIN, ...args, '--base-dir', baseTz], { encoding: 'utf8', env: envTokyo });
+const tzDaily = JSON.parse(runTz(['--all', '--json']));
+ok('★JST 08:00 の作業は当日(09-20)の行に出る(UTC の前日ではない)', tzDaily.daily.length === 1 && tzDaily.daily[0].date === '2026-09-20');
+ok('★表の日付も当日', runTz(['--all']).includes('2026-09-20') && !runTz(['--all']).includes('2026-09-19'));
+ok('★--card --json の day0 は窓の初日(ローカル)', JSON.parse(runTz(['--card', '--since', '20260920', '--json'])).day0 === '2026-09-20');
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(`\n結果: ${pass} pass / ${fail} fail`);
 process.exit(fail ? 1 : 0);
