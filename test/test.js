@@ -287,6 +287,16 @@ ok('★JST 08:00 の作業は当日(09-20)の行に出る(UTC の前日ではな
 ok('★表の日付も当日', runTz(['--all']).includes('2026-09-20') && !runTz(['--all']).includes('2026-09-19'));
 ok('★--card --json の day0 は窓の初日(ローカル)', JSON.parse(runTz(['--card', '--since', '20260920', '--json'])).day0 === '2026-09-20');
 
+console.log('== bad flag values are refused, not read as "nothing" ==');
+const code = (args) => { try { execFileSync('node', [BIN, ...args, '--base-dir', base], { encoding: 'utf8', env, stdio: 'pipe' }); return 0; } catch (e) { return e.status; } };
+ok('★--days abc は exit 2(全期間に化けない)', code(['--days', 'abc']) === 2);
+ok('★--days -3 は exit 2', code(['--days', '-3']) === 2);
+ok('★--idle-gap -5 は exit 2(0時間に化けない)', code(['--idle-gap', '-5']) === 2);
+ok('★--since 2026-9-1 は exit 2(形式違いで全期間に化けない)', code(['--since', '2026-9-1']) === 2);
+ok('★存在しない日付(2026-02-30)は exit 2', code(['--until', '20260230']) === 2);
+ok('★--since が --until より後なら exit 2', code(['--since', '20260925', '--until', '20260901']) === 2);
+ok('正しい値は通る', code(['--since', '2026-09-01', '--until', '20260925', '--days', '7', '--idle-gap', '120']) === 0);
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(`\n結果: ${pass} pass / ${fail} fail`);
 process.exit(fail ? 1 : 0);

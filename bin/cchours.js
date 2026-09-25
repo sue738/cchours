@@ -83,14 +83,29 @@ function parseArgs(argv) {
     else if (a === '--base-dir') o.baseDir = argv[++i];
     else if (a === '-h' || a === '--help') { console.log(HELP); process.exit(0); }
   }
+  // A malformed or out-of-range value must not silently widen or empty the
+  // window: "--days abc" and "--since 2026-9-1" meant all history, "--days -3"
+  // and an inverted --since/--until printed nothing, "--idle-gap -5" meant
+  // zero hours. Refuse them.
+  for (const k of ['since', 'until']) {
+    if (o[k] != null && parseDate(o[k]) == null) usageError(L(`--${k}: expected YYYYMMDD or YYYY-MM-DD, got "${o[k]}"`, `--${k}: YYYYMMDD か YYYY-MM-DD で指定してください: "${o[k]}"`));
+  }
+  for (const [k, flag] of [['days', '--days'], ['idleGapS', '--idle-gap']]) {
+    if (o[k] != null && !(Number.isFinite(o[k]) && o[k] > 0)) usageError(L(`${flag}: expected a positive number`, `${flag}: 正の数で指定してください`));
+  }
+  if (o.since && o.until && parseDate(o.since) > parseDate(o.until)) usageError(L(`--since ${o.since} is after --until ${o.until}`, `--since ${o.since} が --until ${o.until} より後です`));
   return o;
 }
+
+function usageError(msg) { console.error(msg); process.exit(2); }
 
 function parseDate(s) {
   if (!s) return null;
   const m = String(s).match(/^(\d{4})-?(\d{2})-?(\d{2})$/);
   if (!m) return null;
-  return new Date(+m[1], +m[2] - 1, +m[3]).getTime();
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  if (d.getMonth() !== +m[2] - 1 || d.getDate() !== +m[3]) return null; // 2026-02-30
+  return d.getTime();
 }
 
 /**
